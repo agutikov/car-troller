@@ -10,8 +10,8 @@ ARCH_FLAGS= -mcpu=cortex-m3 -mlittle-endian -mthumb
 
 CFLAGS=-std=gnu99 -ffreestanding
 # -nostdlib -nostdinc
-CFLAGS+=-ggdb -O0
-# CFLAGS+=-O2
+CFLAGS+=-ggdb
+CFLAGS+=-O0
 CFLAGS+= $(ARCH_FLAGS)
 CFLAGS+= -Wall
 # High-density devices are STM32F101xx and STM32F103xx microcontrollers where
@@ -78,13 +78,14 @@ clean:
 
 ######### Flash and Debug
 
-OPENOCD_CFG=board/stm32vldiscovery.cfg
+OPENOCD_CFG=hy-stm32_100p.openocd.cfg
 
 FLASH_ADDR=0x8000000
 
 .PHONY: flash
 flash: firmware.bin
 	st-flash write v1 $^ $(FLASH_ADDR)
+#flash: firmware.hex
 #	openocd -f $(OPENOCD_CFG) -c "program firmware.hex verify reset"
 
 .PHONY: gdb-server
@@ -95,5 +96,6 @@ gdb-server:
 .PHONY: gdb
 gdb: firmware.elf
 	$(CROSS_PREFIX)gdb --eval-command="target remote localhost:4242" firmware.elf
+#	$(CROSS_PREFIX)gdb --eval-command="target remote localhost:3333" firmware.elf
 
 
