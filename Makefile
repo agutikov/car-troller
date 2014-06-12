@@ -6,8 +6,7 @@ OBJCOPY=$(CROSS_PREFIX)objcopy
 OBJDUMP=$(CROSS_PREFIX)objdump
 LD=$(CROSS_PREFIX)ld
 
-CFLAGS=-std=gnu99 -ffreestanding -nostdlib
-# -nostdinc
+CFLAGS=-std=gnu99 -ffreestanding -nostdlib -nostdinc
 CLFAGS+=-ggdb -O0
 # CFLAGS+=-O2
 CFLAGS+= -mcpu=cortex-m3 -mlittle-endian -mthumb
@@ -23,23 +22,35 @@ SPL_SYSTEM_DIR=$(SPL_LIB_PATH)/Libraries/CMSIS/CM3/DeviceSupport/ST/STM32F10x
 SPL_CORE_DIR=$(SPL_LIB_PATH)/Libraries/CMSIS/CM3/CoreSupport
 SPL_DRIVER_DIR=$(SPL_LIB_PATH)/Libraries/STM32F10x_StdPeriph_Driver
 
+NEWLIB_SRC_DIR=../lib/newlib/libc/string
+NEWLIB_INC_DIR=../lib/newlib/libc/include
+
 CFLAGS+= -I.
 CFLAGS+= -I$(SPL_SYSTEM_DIR)
 CFLAGS+= -I$(SPL_CORE_DIR)
 CFLAGS+= -I$(SPL_DRIVER_DIR)/inc
+CFLAGS+= -I$(NEWLIB_INC_DIR)
+CFLAGS+= -I../lib/include
 
 LDSCRIPT=stm32f103vet6.ld
 
-LDFLAGS= -nostdlib -M -Map firmware.map
+# STDLIB_DIR=/opt/arm-none-eabi/arm-none-eabi/lib/armv7e-m/
+# GCCLIB_DIR=/opt/arm-none-eabi/lib/gcc/arm-none-eabi/4.8.3/armv7e-m/softfp/
 
-SRCS=main.c startup.c
+# LDFLAGS= -L$(STDLIB_DIR) -lc -L$(GCCLIB_DIR) -lgcc
+LDFLAGS= -nostdlib -M -Map firmware.map -O0
+
+SRCS=main.c startup.c usart.c
 LOCAL_OBJS=$(SRCS:.c=.o)
+NEWLIB_OBJS=memcpy.o
 SPL_SYSTEM_OBJS=system_stm32f10x.o
-SPL_DRIVER_OBJS=stm32f10x_gpio.o stm32f10x_rcc.o stm32f10x_usart.o
-ALL_OBJS=$(LOCAL_OBJS) $(SPL_SYSTEM_OBJS) $(SPL_DRIVER_OBJS)
+SPL_DRIVER_OBJS=stm32f10x_gpio.o stm32f10x_rcc.o stm32f10x_usart.o \
+	stm32f10x_adc.o stm32f10x_tim.o stm32f10x_flash.o stm32f10x_can.o \
+	stm32f10x_dma.o stm32f10x_exti.o stm32f10x_rtc.o misc.o
+ALL_OBJS=$(LOCAL_OBJS) $(SPL_SYSTEM_OBJS) $(SPL_DRIVER_OBJS) $(NEWLIB_OBJS)
 
 .PHONY: all
-all: firmware.bin firmware.lst
+all: firmware.bin firmware.lst firmware.elf
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $^ $@
@@ -55,6 +66,9 @@ $(SPL_DRIVER_OBJS): %.o: $(SPL_DRIVER_DIR)/src/%.c
 	$(CC) $(CFLAGS) -c -o $@ $^
 
 $(LOCAL_OBJS): %.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+$(NEWLIB_OBJS): %.o: $(NEWLIB_SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $^
 
 %.lst:	%.elf
@@ -80,5 +94,9 @@ flash: firmware.bin
 gdb-server:
 	st-util -1
 #	openocd -f $(OPENOCD_CFG)
+
+.PHONY: gdb
+gdb: firmware.elf
+	arm-none-eabi-gdb --eval-command="target remote localhost:4242" firmware.elf
 
 

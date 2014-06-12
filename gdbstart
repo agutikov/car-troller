@@ -1,0 +1,6 @@
+target remote localhost:4242
+symbol-file firmware.elf
+break reset_isr
+break hard_fault_isr
+monitor reset halt
+continue
