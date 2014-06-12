@@ -195,7 +195,7 @@ void main( void )
 
 #if 0
 	char buffer[100];
-	sniprintf(buffer, sizeof(buffer), "%d\n", 123);
+	snprintf(buffer, sizeof(buffer), "%d\n", 123);
 #endif
 
 #if 0

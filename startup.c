@@ -51,16 +51,21 @@ extern void panic (int delay);
 
 static uint8_t *_heap_end = (uint8_t*)&_heap;
 
+// example:
+// register char * stack_ptr asm ("sp");
+
 caddr_t _sbrk_r (int incr)
 {
-	if (_heap_end + incr >= (uint8_t*)&_heap_end) {
+	uint8_t* prev_heap_end = _heap_end;
+
+	if (_heap_end + incr >= (uint8_t*)&_eheap) {
 		// TODO: global terminal for printf
-		panic(2000);
+		panic(10);
 	}
 
 	_heap_end += incr;
 
-	return (caddr_t) _heap_end;
+	return (caddr_t) prev_heap_end;
 }
 
 
