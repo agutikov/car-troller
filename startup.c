@@ -46,6 +46,8 @@ const section_t sram_sections[] = {
 	{&_stack, &_estack}
 };
 
+extern void printstr(const char* str);
+
 extern void main(void);
 extern void panic (int delay);
 
@@ -59,7 +61,7 @@ caddr_t _sbrk_r (int incr)
 	uint8_t* prev_heap_end = _heap_end;
 
 	if (_heap_end + incr >= (uint8_t*)&_eheap) {
-		// TODO: global terminal for printf
+		printstr("_sbrk_r: memory exhausted\n");
 		panic(10);
 	}
 
@@ -72,6 +74,8 @@ caddr_t _sbrk_r (int incr)
 
 extern void usart1_tx_dma_isr(void);
 extern void usart1_isr (void);
+
+extern void timer3_isr (void);
 
 /*
  * Only Reset ISR may be ((noreturn)) and ((naked)).
@@ -204,7 +208,7 @@ isr_t __isr_vector[] =
 	0,			/*!%26 TIM1 trigger and commutation and TIM17 global interrupt */
 	0,			/*!%27 TIM1 capture compare interrupt */
 	0,			/*!%28 TIM2 global interrupt */
-	0,			/*!%29 TIM3 global interrupt */
+	timer3_isr,			/*!%29 TIM3 global interrupt */
 	0,			/*!%30 TIM4 global interrupt */
 	0,			/*!%31 I2C1 event interrupt */
 	0,			/*!%32 I2C1 error interrupt */

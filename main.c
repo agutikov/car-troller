@@ -24,6 +24,7 @@
 #include <stdio.h>
 
 #include "stm32f10x_rcc.h"
+#include "stm32f10x_tim.h"
 
 #include "usart.h"
 
@@ -209,10 +210,110 @@ void led_num (int n)
 	}
 }
 
-void wait (uint32_t xz)
+#define RTI_BIT_US	    415
+#define RTI_PERIOD_BITS  (100000 / RTI_BIT_US)
+
+int rti_lsb = 0; // LSB or MSB first
+
+uint8_t rti_head[] = {0x50, 0xE0};
+uint8_t rti_mode[] = {0x2D, 0x01,
+						0x40, 0x45, 0x4C, 0x46};
+uint8_t rti_brightness[] = {0xE9,
+							0x20, 0x61, 0x62, 0x23, 0x64,
+							0x25, 0x26, 0x67, 0x68, 0x29,
+							0x2A, 0x2C, 0x6B, 0x6D, 0x6E,
+							0x2F};
+uint8_t rti_tail[] = {0x80, 0x10, 0x87};
+
+uint8_t rti_msg[7];
+int rti_bit_counter = 0;
+
+int rti_period_counter = 0;
+
+void rti_init (void)
 {
-	for(uint32_t i = 0; i < xz*1000; i++)
-		__ASM volatile ("nop");
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+	// prescaler makes one '1' in period equal 1 usecond
+	uint16_t PrescalerValue = (SystemCoreClock / 1000000) - 1;
+	TIM_TimeBaseStructure.TIM_Period = RTI_BIT_US;
+	TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
+	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
+// Without "helpers" definitely faster ;)
+//	TIM3->PSC = (SystemCoreClock / 1000000) - 1;
+//	TIM3->ARR = 415;
+
+	TIM_ITConfig(TIM3, TIM_IT_Update, ENABLE);
+//	TIM3->DIER |= TIM_DIER_UIE;
+
+	NVIC_EnableIRQ(TIM3_IRQn);
+
+	TIM_Cmd(TIM3, ENABLE);
+//	TIM3->CR1 |= TIM_CR1_CEN;
+
+	memcpy(rti_msg, rti_head, 2);
+	memcpy(&rti_msg[4], rti_tail, 3);
+	rti_msg[2] = rti_mode[0];
+	rti_msg[3] = rti_brightness[0];
+
+	printstr("RTI configured and enabled\n");
+	printstr("message length: ");
+	printnum(sizeof(rti_msg), 0);
+	printstr(" bytes\n");
+	printstr("message start value: ");
+	printhex(rti_msg, sizeof(rti_msg));
+	printstr("\n");
+}
+
+void rti_set_mode (unsigned int mode_id)
+{
+	if (mode_id < sizeof(rti_mode)) {
+		rti_msg[2] = rti_mode[mode_id];
+	}
+}
+void rti_set_brightness (unsigned int brightness_id)
+{
+	if (brightness_id < sizeof(rti_brightness)) {
+		rti_msg[3] = rti_brightness[brightness_id];
+	}
+}
+
+void rti_tick (void)
+{
+	if (!rti_period_counter) {
+		rti_period_counter = RTI_PERIOD_BITS;
+		rti_bit_counter = 0;
+	} else {
+		if (rti_bit_counter < sizeof(rti_msg)*8) {
+			uint8_t bit;
+
+			bit = rti_msg[rti_bit_counter/8];
+			if (rti_lsb)
+				bit &= 0x01 << (rti_bit_counter % 8);
+			else
+				bit &= 0x80 >> (rti_bit_counter % 8);
+
+			GPIO_WriteBit(GPIOC, GPIO_Pin_8, bit);
+			rti_bit_counter++;
+		}
+	}
+}
+
+void timer3_isr (void)
+{
+	TIM3->SR &= ~TIM_SR_UIF;
+	rti_tick();
 }
 
 void panic (int delay)
@@ -264,6 +365,11 @@ int cmd_exec (int argc, const char* argv[], usart_t* term)
 		return 0;
 	}
 
+	if (!strcmp(argv[0], "rti")) {
+
+
+
+	}
 
 	return 1;
 }
@@ -273,10 +379,10 @@ char cmd_buffer[USART_BUFF_SIZE];
 
 /*
  * TODO:
- * - timer irq with screen control
  * - buttons
  * - buzzer pwm
  * - reostat adc
+ * - configuration for GPIO, NVIC, DMA - in one block, not in each driver
  *
  */
 
@@ -293,7 +399,9 @@ void main( void )
 
 	usart_enable(usart_1);
 
-	term_putstr(usart_1, "Egor Volvo Car-Troller\n");
+	term_putstr(usart_1, "\n\nEgor Volvo Car-Troller\n");
+
+	rti_init();
 
 #if 0
 	char buffer[100];
