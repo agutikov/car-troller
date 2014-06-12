@@ -28,6 +28,57 @@
 #include "usart.h"
 
 
+int i2str (char* b, int i, int base, int field)
+{
+	char const digit[] = "0123456789ABCDEF";
+	int len = 0;
+
+	if (base == 0)
+		base = 10;
+
+	if (i < 0) {
+		*b++ = '-';
+		len++;
+	}
+
+	int shifter = i;
+
+	do { // Move to where representation ends
+		++b;
+		len++;
+		shifter = shifter/base;
+	} while (shifter);
+
+	int f = field - len;
+
+	if (f > 0) {
+		b += f;
+		len += f;
+	}
+
+	*b = '\0';
+
+	do { // Move back, inserting digits as u go
+		*--b = digit[i%base];
+		i = i/base;
+	} while (i);
+
+	if (f > 0) {
+		while (--f)
+			*--b = '0';
+	}
+
+	return len;
+}
+
+
+void wait (uint32_t xz)
+{
+	for(uint32_t i = 0; i < xz*1000; i++)
+		__ASM volatile ("nop");
+}
+
+
 #define USART_NUMBER 3
 #define USART_BUFF_SIZE	512
 
@@ -58,6 +109,46 @@ usart_config_t usart_configs[USART_NUMBER] = {
 
 	}
 };
+
+usart_t* term_1 = &usart_devices[0];
+
+void printstr (const char* str)
+{
+	term_putstr(term_1, str);
+}
+void printnum (int i, int base)
+{
+	char buffer[32];
+	i2str(buffer, i, base, 0);
+	printstr(buffer);
+}
+uint8_t hex_first (uint8_t byte)
+{
+	byte >>= 4;
+	return byte >= 0xA ? byte + 'A' - 10 : byte + '0';
+}
+uint8_t hex_last (uint8_t byte)
+{
+	byte &= 0x0F;
+	return byte >= 0xA ? byte + 'A' - 10 : byte + '0';
+}
+void printhex (uint8_t* ptr, uint32_t size)
+{
+	term_putstr(term_1, "{ ");
+
+	char delim[] = ", ";
+	char buffer[4] = "0x--";
+	while (size-- > 0) {
+		buffer[2] = hex_first(*ptr);
+		buffer[3] = hex_last(*ptr);
+		ptr++;
+		usart_send(term_1, buffer, sizeof(buffer));
+		if (size > 0) {
+			usart_send(term_1, delim, sizeof(delim));
+		}
+	}
+	term_putstr(term_1, " }\n");
+}
 
 void usart1_isr (void)
 {
@@ -102,6 +193,11 @@ void led_off (int led)
 {
 	if (led < LED_NUMBER)
 		GPIO_WriteBit((GPIO_TypeDef *)leds[led][0], leds[led][1], 0);
+}
+void led_set (int led, int val)
+{
+	if (led < LED_NUMBER)
+		GPIO_WriteBit((GPIO_TypeDef *)leds[led][0], leds[led][1], val);
 }
 void led_num (int n)
 {
