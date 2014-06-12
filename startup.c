@@ -3,7 +3,7 @@
 #include "stm32f10x.h"
 #include "system_stm32f10x.h"
 #include <stdint.h>
-
+#include <sys/types.h>
 
 extern uint32_t _text;
 extern uint32_t _etext;
@@ -19,6 +19,9 @@ extern uint32_t _edata;
 
 extern uint32_t _bss;
 extern uint32_t _ebss;
+
+extern uint32_t _heap;
+extern uint32_t _eheap;
 
 extern uint32_t _stack;
 extern uint32_t _estack;
@@ -39,11 +42,29 @@ const section_t flash_sections[] = {
 const section_t sram_sections[] = {
 	{&_data, &_edata},
 	{&_bss, &_ebss},
+	{&_heap, &_eheap},
 	{&_stack, &_estack}
 };
 
 extern void main(void);
 extern void panic (int delay);
+
+static uint8_t *_heap_end = (uint8_t*)&_heap;
+
+caddr_t _sbrk_r (int incr)
+{
+	if (_heap_end + incr >= (uint8_t*)&_heap_end) {
+		// TODO: global terminal for printf
+		panic(2000);
+	}
+
+	_heap_end += incr;
+
+	return (caddr_t) _heap_end;
+}
+
+
+
 extern void usart1_tx_dma_isr(void);
 extern void usart1_isr (void);
 
@@ -85,9 +106,23 @@ void reset_isr(void)
 	while(1);
 }
 
+typedef struct frame {
+	uint32_t R0;
+	uint32_t R1;
+	uint32_t R2;
+	uint32_t R3;
+	uint32_t R12;
+	uint32_t return_address;
+	uint32_t PSR;
+	uint32_t LR;
+} frame_t;
 
 void hard_fault_isr(void)
 {
+//	uint32_t anchor = 0x00ABBA00;
+//	frame_t* frame = (frame_t*) (((uint8_t*)&anchor) - sizeof(frame_t));
+//	while (1);
+
 	panic(300);
 }
 
