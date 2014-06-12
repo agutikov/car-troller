@@ -15,6 +15,9 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+
+#include "stm32f10x_rcc.h"
 
 #include "usart.h"
 
@@ -49,7 +52,6 @@ usart_config_t usart_configs[USART_NUMBER] = {
 
 	}
 };
-
 
 void usart1_isr (void)
 {
@@ -118,6 +120,10 @@ void panic (int delay)
 		wait(delay);
 		led_num(2);
 		wait(delay);
+		led_num(4);
+		wait(delay);
+		led_num(8);
+		wait(delay);
 	}
 }
 
@@ -163,9 +169,19 @@ int cmd_exec (int argc, const char* argv[], usart_t* term)
 
 char cmd_buffer[USART_BUFF_SIZE];
 
+/*
+ * TODO:
+ * - timer irq with screen control
+ * - buttons
+ * - buzzer pwm
+ * - reostat adc
+ *
+ */
+
 void main( void )
 {
 	leds_init();
+	led_num(0);
 
 	usart_t* usart_1 = &usart_devices[0];
 
@@ -175,16 +191,22 @@ void main( void )
 
 	usart_enable(usart_1);
 
-	term_putstr(usart_1, "Yet Another Delta Robot\n");
+	term_putstr(usart_1, "Egor Volvo Car-Troller\n");
 
-	term_putstr(usart_1, "Servo PWM configured.\n");
 #if 0
-	int a = strtol("123", 0, 0);
+	char buffer[100];
+	sniprintf(buffer, sizeof(buffer), "%d\n", 123);
+#endif
+
+#if 0
+	char* tail = 0;
+	char numstr[4] = {'1', '2', '3', 0};
+	int a = strtol(numstr, &tail, 10);
 
 	if (a == 123) {
 		led_num(1);
 	} else {
-		led_num(3);
+		led_num(5);
 	}
 #endif
 
