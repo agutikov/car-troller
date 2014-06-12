@@ -233,8 +233,9 @@ uint8_t hex_last (uint8_t byte)
 	byte &= 0x0F;
 	return byte >= 0xA ? byte + 'A' - 10 : byte + '0';
 }
-void printhex (uint8_t* ptr, uint32_t size)
+void printhex (void* vptr, uint32_t size)
 {
+	uint8_t* ptr = vptr;
 	term_putstr(term_1, "{ ");
 
 	char delim[] = ", ";
@@ -313,9 +314,17 @@ void led_num (int n)
 #define RTI_BIT_US	    415
 #define RTI_PERIOD_BITS  (100000 / RTI_BIT_US)
 
-int rti_lsb = 0; // LSB or MSB first
+typedef enum BIT_ORDER {
+	LSB_FIRST = 0,
+	MSB_FIRST = 1
+} BIT_ORDER_T;
+BIT_ORDER_T rti_bit_order = MSB_FIRST;
 
+// Copy whole head and tail into message.
 uint8_t rti_head[] = {0x50, 0xE0};
+uint8_t rti_tail[] = {0x80, 0x10, 0x87};
+
+// Choose one of modes and one of brightnesses.
 uint8_t rti_mode[] = {0x2D, 0x01,
 						0x40, 0x45, 0x4C, 0x46};
 uint8_t rti_brightness[] = {0xE9,
@@ -323,15 +332,32 @@ uint8_t rti_brightness[] = {0xE9,
 							0x25, 0x26, 0x67, 0x68, 0x29,
 							0x2A, 0x2C, 0x6B, 0x6D, 0x6E,
 							0x2F};
-uint8_t rti_tail[] = {0x80, 0x10, 0x87};
 
+/* Lack of syncronization will break nothing,
+   rti monitor is resistant to wrong messages. */
 uint8_t rti_msg[7];
 int rti_bit_counter = 0;
 
 int rti_period_counter = 0;
 
+void rti_msg_reset()
+{
+	memcpy(rti_msg, rti_head, 2);
+	memcpy(&rti_msg[4], rti_tail, 3);
+	rti_msg[2] = rti_mode[0];
+	rti_msg[3] = rti_brightness[0];
+}
+void rti_print_msg()
+{
+	printstr("RTI message: ");
+	printhex(rti_msg, sizeof(rti_msg));
+	printstr("\n");
+}
+
 void rti_init (void)
 {
+	rti_msg_reset();
+
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
 
@@ -362,18 +388,11 @@ void rti_init (void)
 	TIM_Cmd(TIM3, ENABLE);
 //	TIM3->CR1 |= TIM_CR1_CEN;
 
-	memcpy(rti_msg, rti_head, 2);
-	memcpy(&rti_msg[4], rti_tail, 3);
-	rti_msg[2] = rti_mode[0];
-	rti_msg[3] = rti_brightness[0];
-
 	printstr("RTI configured and enabled\n");
 	printstr("message length: ");
 	printnum(sizeof(rti_msg), 0);
 	printstr(" bytes\n");
-	printstr("message start value: ");
-	printhex(rti_msg, sizeof(rti_msg));
-	printstr("\n");
+	rti_print_msg();
 }
 
 void rti_set_mode (unsigned int mode_id)
@@ -399,9 +418,10 @@ void rti_tick (void)
 			uint8_t bit;
 
 			bit = rti_msg[rti_bit_counter/8];
-			if (rti_lsb)
+
+			if (rti_bit_order == LSB_FIRST)
 				bit &= 0x01 << (rti_bit_counter % 8);
-			else
+			else // if (rti_bit_order == MSB_FIRST)
 				bit &= 0x80 >> (rti_bit_counter % 8);
 
 			GPIO_WriteBit(GPIOC, GPIO_Pin_8, bit);
@@ -430,8 +450,11 @@ void panic (int delay)
 	}
 }
 
+
+
+
 int argc = 0;
-const char* argv[32] = {0};
+char* argv[32] = {0};
 
 void parse_args (char* cmd, uint32_t cmd_length)
 {
@@ -458,17 +481,54 @@ void parse_args (char* cmd, uint32_t cmd_length)
 
 const char* help = "help, h, ? - print this message\n";
 
-int cmd_exec (int argc, const char* argv[], usart_t* term)
+//TODO: structure of commands - tree with placeholders for arguments
+
+int cmd_exec (int argc, char* argv[], usart_t* term)
 {
 	if (!strcmp(argv[0], "help") || argv[0][0] == '?' || argv[0][0] == 'h') {
 		term_putstr(term, help);
 		return 0;
 	}
 
-	if (!strcmp(argv[0], "rti")) {
+	if (!strcmp(argv[0], "rti") && argc > 1) {
+		if (!strcmp(argv[1], "reset")) {
+			rti_msg_reset();
+			rti_print_msg();
+			return 0;
+		}
+		if (!strcmp(argv[1], "brightness") && argc == 3) {
+			int brightness_id = strtol(argv[2], 0, 0);
+			rti_set_brightness(brightness_id);
+			return 0;
+		}
+		if (!strcmp(argv[1], "mode") && argc == 3) {
+			int mode_id = strtol(argv[2], 0, 0);
+			rti_set_mode(mode_id);
+			return 0;
+		}
+		if (!strcmp(argv[1], "show")) {
+			rti_print_msg();
+			return 0;
+		}
+		if (!strcmp(argv[1], "msg") && argc == 2 + sizeof(rti_msg)) {
+			for (int i = 0; i < sizeof(rti_msg); i++) {
+				rti_msg[i] = strtol(argv[2 + i], 0, 16);
+			}
+			rti_print_msg();
+			return 0;
+		}
+	}
 
-
-
+	if (!strcmp(argv[0], "AT")) {
+		for (int i = 0; i < strlen(argv[1]); i++) {
+			argv[1][i] = (char)tolower((int)argv[1][i]);
+		}
+		if (!strcmp(argv[1], "modeswitch") && argc == 3) {
+			printstr("Switching to mode #");
+			printnum(strtol(argv[2], 0, 0), 0);
+			printstr("\n");
+			return 0;
+		}
 	}
 
 	return 1;
@@ -479,11 +539,12 @@ char cmd_buffer[USART_BUFF_SIZE];
 
 /*
  * TODO:
+ * - reostat adc
  * - buttons
  * - buzzer pwm
- * - reostat adc
  * - configuration for GPIO, NVIC, DMA - in one block, not in each driver
- *
+ * - usart mode: text terminal | binary protocol for communication with |
+ * - history, edit, autocomplete?
  */
 
 void main( void )
@@ -499,7 +560,7 @@ void main( void )
 
 	usart_enable(usart_1);
 
-	term_putstr(usart_1, "\n\nEgor Volvo Car-Troller\n");
+	term_putstr(usart_1, "\n\n>>>>>>>> Egor Volvo Car-Troller <<<<<<<<<<\n");
 
 	rti_init();
 
@@ -520,6 +581,11 @@ void main( void )
 	}
 #endif
 
+#if 0
+	char numstr[4] = {'1', '2', '3', 0};
+	int a = atoi(numstr);
+#endif
+
 	int recv;
 
 	term_putstr(usart_1, "~ # ");
@@ -528,6 +594,7 @@ void main( void )
 		recv = term_getline(usart_1, cmd_buffer, sizeof(cmd_buffer));
 
 		if (recv > 0) {
+//			printhex(cmd_buffer, recv);
 
 			if (cmd_buffer[0] != LF) {
 

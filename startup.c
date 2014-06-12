@@ -46,15 +46,14 @@ const section_t sram_sections[] = {
 	{&_stack, &_estack}
 };
 
-extern void printstr(const char* str);
+extern void printstr (const char* str);
+extern void printhex (void* vptr, uint32_t size);
+extern void printnum (int i, int base);
 
 extern void main(void);
 extern void panic (int delay);
 
 static uint8_t *_heap_end = (uint8_t*)&_heap;
-
-// example:
-// register char * stack_ptr asm ("sp");
 
 caddr_t _sbrk_r (int incr)
 {
@@ -128,9 +127,9 @@ typedef struct frame {
 
 void hard_fault_isr(void)
 {
+//	register char * stack_ptr asm ("sp");
 //	uint32_t anchor = 0x00ABBA00;
 //	frame_t* frame = (frame_t*) (((uint8_t*)&anchor) - sizeof(frame_t));
-//	while (1);
 
 	panic(300);
 }
