@@ -323,6 +323,8 @@ int usart_send (usart_t* usart, const void *ptr, uint32_t size)
 
 #define DMA_CHANNEL_TC_FLAG(chan_idx) (DMA1_FLAG_TC1 << 4*(chan_idx -1))
 
+
+// TODO: dtaasheet 7.3.5 DMA request mapping Table 29 - try DMA channel 4 for USART1_TX
 void usart_handle_tx_dma_irq (usart_t* usart)
 {
 #if USE_DMA
