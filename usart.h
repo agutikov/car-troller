@@ -2,6 +2,7 @@
 #define _USART_DRV_H_
 
 #include <stdint.h>
+#include <string.h>
 
 #include "stm32f10x.h"
 #include "stm32f10x_rcc.h"
@@ -42,7 +43,9 @@ typedef struct usart_config {
 
 	DMA_Channel_TypeDef* dma_channel_regs;
 	IRQn_Type dma_irqn;
-	uint32_t dma_tc_flag;
+
+	// channel 1 (in datasheet) - > idx 1
+	uint32_t dma_channel_idx;
 
 } usart_config_t;
 
@@ -57,14 +60,17 @@ typedef struct usart_config {
 typedef struct usart_ {
 	ring_buffer_t tx;
 	uint32_t last_tx_dma;
-	int tx_started;
 	ring_buffer_t rx;
 
 	USART_TypeDef* usart_regs;
 	DMA_Channel_TypeDef* dma_channel_regs;
 
 	DMA_InitTypeDef DMA_InitStructure;
-	uint32_t dma_tc_flag;
+
+	// see usart_config_t
+	uint32_t dma_channel_idx;
+
+	int term_newline_count;
 
 } usart_t;
 
@@ -76,10 +82,26 @@ void usart_enable (usart_t* usart);
 void usart_disable (usart_t* usart);
 
 int usart_send (usart_t* usart, const void *ptr, uint32_t size);
-
 int usart_recv (usart_t* usart, void *ptr, uint32_t size);
+
+#define CR ((uint8_t)13)
+#define LF ((uint8_t)10)
+
+int term_send (usart_t* term, const void* ptr, uint32_t size);
+static inline void term_putstr (usart_t* term, const void* str)
+{
+	term_send(term, str, strlen(str));
+}
+int term_recv (usart_t* term, void* ptr, uint32_t size);
+int term_getline (usart_t* term, void* ptr, uint32_t size);
+
+#define PRINTF_BUFFER_SIZE 512
+
+void term_printf (usart_t* term, const char* format, ...);
 
 void usart_isr (usart_t* usart);
 void usart_handle_tx_dma_irq (usart_t* usart);
+
+
 
 #endif

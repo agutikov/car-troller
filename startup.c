@@ -4,6 +4,7 @@
 #include "system_stm32f10x.h"
 #include <stdint.h>
 
+
 extern uint32_t _text;
 extern uint32_t _etext;
 
@@ -21,6 +22,8 @@ extern uint32_t _ebss;
 
 extern uint32_t _stack;
 extern uint32_t _estack;
+
+
 
 typedef struct section {
 	uint32_t *start;
@@ -40,10 +43,16 @@ const section_t sram_sections[] = {
 };
 
 extern void main(void);
+extern void panic (int delay);
+extern void usart1_tx_dma_isr(void);
+extern void usart1_isr (void);
 
+/*
+ * Only Reset ISR may be ((noreturn)) and ((naked)).
+ * If execution should proceed after IRQ handling -
+ * ISR _MUST_ return.
+ */
 void reset_isr(void) __attribute__ ((noreturn)) __attribute__ ((naked));
-void hard_fault_isr(void) __attribute__ ((noreturn)) __attribute__ ((naked));
-void nmi_isr(void) __attribute__ ((noreturn)) __attribute__ ((naked));
 
 void reset_isr(void)
 {
@@ -76,21 +85,16 @@ void reset_isr(void)
 	while(1);
 }
 
+
 void hard_fault_isr(void)
 {
-	reset_isr();
-
-	while(1);
+	panic(300);
 }
 
 void nmi_isr(void)
 {
-
-	while(1);
+	panic(1000);
 }
-
-extern void usart1_isr(void) __attribute__ ((noreturn)) __attribute__ ((naked));
-extern void usart1_tx_dma_isr(void) __attribute__ ((noreturn)) __attribute__ ((naked));
 
 #if 0
 void shared_isr(void) __attribute__ ((noreturn)) __attribute__ ((naked));
@@ -131,120 +135,61 @@ isr_t __isr_vector[] =
 	0,			/*!#12 reserved */
 	0,			/*!#13 cortex-m3 penable request for system service interrupt */
 	0,			/*!#14 cortex-m3 system tick timer interrupt */
-
-	0,		/*!%0 window watchdog interrupt */
-	0,		/*!%1 PVD through EXTI line detection interrupt */
-	0,		/*!%2 tamper adn timestamp through EXTI interrupt */
-	0,		/*!%3 RTC wakeup through EXTI interrupt */
-	0,		/*!%4 flash global interrupt */
-	0,		/*!%5 RCC global interrupt */
-	0,		/*!%6 EXTI line0 interrupt */
-	0,		/*!%7 EXTI line1 interrupt */
-	0,		/*!%8 EXTI line2 interrupt */
-	0,		/*!%9 EXTI line3 interrupt */
-	0,		/*!%10 EXTI line4 interrupt */
-	usart1_tx_dma_isr,		/*!%11 DMA1 channel 1 global interrupt */
-	0,		/*!%12 DMA1 channel 2 global interrupt */
-	0,		/*!%13 DMA1 channel 3 global interrupt */
-	0,		/*!%14 DMA1 channel 4 global interrupt */
-	0,		/*!%15 DMA1 channel 5 global interrupt */
-	0,		/*!%16 DMA1 channel 6 global interrupt */
-	0,		/*!%17 DMA1 channel 7 global interrupt */
-	0,		/*!%18 ADC1 global interrupt */
-	0,		/*!%19 reserved */
-	0,		/*!%20 reserved */
-	0,		/*!%21 reserved */
-	0,		/*!%22 reserved */
-	0,		/*!%23 EXTI line[9:5] interrupts */
-	0,		/*!%24 TIM1 break and TIM15 global interrupt */
-	0,		/*!%25 TIM1 update and TIM16 global interrupt */
-	0,		/*!%26 TIM1 trigger and commutation and TIM17 global interrupt */
-	0,		/*!%27 TIM1 capture compare interrupt */
-	0,		/*!%28 TIM2 global interrupt */
-	0,		/*!%29 TIM3 global interrupt */
-	0,		/*!%30 TIM4 global interrupt */
-	0,		/*!%31 I2C1 event interrupt */
-	0,		/*!%32 I2C1 error interrupt */
-	0,		/*!%33 I2C2 event interrupt */
-	0,		/*!%34 I2C2 error interrupt */
-	0,		/*!%35 SPI1 global interrupt */
-	0,		/*!%36 SPI2 global interrupt */
-	usart1_isr,		/*!%37 USART1 global interrupt */
-	0,		/*!%38 USART2 global interrupt */
-	0,		/*!%39 USART3 global interrupt */
-	0,		/*!%40 EXTI line[15:10] interrupts */
-	0,		/*!%41 RTC alarm through EXTI line interrupt */
-	0,		/*!%42 HDMI-CEC interrupt */
-	0,		/*!%43 reserved */
-	0,		/*!%44 reserved */
-	0,		/*!%45 reserved */
-	0,		/*!%46 reserved */
-	0,		/*!%47 reserved */
-	0,		/*!%48 reserved */
-	0,		/*!%49 reserved */
-	0,		/*!%50 reserved */
-	0,		/*!%51 reserved */
-	0,		/*!%52 reserved */
-	0,		/*!%53 reserved */
-	0,		/*!%54 TIM6 and DAC underrun interrupt */
-	0		/*!%55 TIM7 interrupt */
-
-#if 0
-	shared_isr,		/*!%0 window watchdog interrupt */
-	shared_isr,		/*!%1 PVD through EXTI line detection interrupt */
-	shared_isr,		/*!%2 tamper adn timestamp through EXTI interrupt */
-	shared_isr,		/*!%3 RTC wakeup through EXTI interrupt */
-	shared_isr,		/*!%4 flash global interrupt */
-	shared_isr,		/*!%5 RCC global interrupt */
-	shared_isr,		/*!%6 EXTI line0 interrupt */
-	shared_isr,		/*!%7 EXTI line1 interrupt */
-	shared_isr,		/*!%8 EXTI line2 interrupt */
-	shared_isr,		/*!%9 EXTI line3 interrupt */
-	shared_isr,		/*!%10 EXTI line4 interrupt */
-	shared_isr,		/*!%11 DMA1 channel 1 global interrupt */
-	shared_isr,		/*!%12 DMA1 channel 2 global interrupt */
-	shared_isr,		/*!%13 DMA1 channel 3 global interrupt */
-	shared_isr,		/*!%14 DMA1 channel 4 global interrupt */
-	shared_isr,		/*!%15 DMA1 channel 5 global interrupt */
-	shared_isr,		/*!%16 DMA1 channel 6 global interrupt */
-	shared_isr,		/*!%17 DMA1 channel 7 global interrupt */
-	shared_isr,		/*!%18 ADC1 global interrupt */
-	shared_isr,		/*!%19 reserved */
-	shared_isr,		/*!%20 reserved */
-	shared_isr,		/*!%21 reserved */
-	shared_isr,		/*!%22 reserved */
-	shared_isr,		/*!%23 EXTI line[9:5] interrupts */
-	shared_isr,		/*!%24 TIM1 break and TIM15 global interrupt */
-	shared_isr,		/*!%25 TIM1 update and TIM16 global interrupt */
-	shared_isr,		/*!%26 TIM1 trigger and commutation and TIM17 global interrupt */
-	shared_isr,		/*!%27 TIM1 capture compare interrupt */
-	shared_isr,		/*!%28 TIM2 global interrupt */
-	shared_isr,		/*!%29 TIM3 global interrupt */
-	shared_isr,		/*!%30 TIM4 global interrupt */
-	shared_isr,		/*!%31 I2C1 event interrupt */
-	shared_isr,		/*!%32 I2C1 error interrupt */
-	shared_isr,		/*!%33 I2C2 event interrupt */
-	shared_isr,		/*!%34 I2C2 error interrupt */
-	shared_isr,		/*!%35 SPI1 global interrupt */
-	shared_isr,		/*!%36 SPI2 global interrupt */
-	shared_isr,		/*!%37 USART1 global interrupt */
-	shared_isr,		/*!%38 USART2 global interrupt */
-	shared_isr,		/*!%39 USART3 global interrupt */
-	shared_isr,		/*!%40 EXTI line[15:10] interrupts */
-	shared_isr,		/*!%41 RTC alarm through EXTI line interrupt */
-	shared_isr,		/*!%42 HDMI-CEC interrupt */
-	shared_isr,		/*!%43 reserved */
-	shared_isr,		/*!%44 reserved */
-	shared_isr,		/*!%45 reserved */
-	shared_isr,		/*!%46 reserved */
-	shared_isr,		/*!%47 reserved */
-	shared_isr,		/*!%48 reserved */
-	shared_isr,		/*!%49 reserved */
-	shared_isr,		/*!%50 reserved */
-	shared_isr,		/*!%51 reserved */
-	shared_isr,		/*!%52 reserved */
-	shared_isr,		/*!%53 reserved */
-	shared_isr,		/*!%54 TIM6 and DAC underrun interrupt */
-	shared_isr		/*!%55 TIM7 interrupt */
-#endif
+	0,			/*!%0 window watchdog interrupt */
+	0,			/*!%1 PVD through EXTI line detection interrupt */
+	0,			/*!%2 tamper adn timestamp through EXTI interrupt */
+	0,			/*!%3 RTC wakeup through EXTI interrupt */
+	0,			/*!%4 flash global interrupt */
+	0,			/*!%5 RCC global interrupt */
+	0,			/*!%6 EXTI line0 interrupt */
+	0,			/*!%7 EXTI line1 interrupt */
+	0,			/*!%8 EXTI line2 interrupt */
+	0,			/*!%9 EXTI line3 interrupt */
+	0,			/*!%10 EXTI line4 interrupt */
+	usart1_tx_dma_isr,			/*!%11 DMA1 channel 1 global interrupt */
+	0,			/*!%12 DMA1 channel 2 global interrupt */
+	0,			/*!%13 DMA1 channel 3 global interrupt */
+	0,			/*!%14 DMA1 channel 4 global interrupt */
+	0,			/*!%15 DMA1 channel 5 global interrupt */
+	0,			/*!%16 DMA1 channel 6 global interrupt */
+	0,			/*!%17 DMA1 channel 7 global interrupt */
+	0,			/*!%18 ADC1 global interrupt */
+	0,			/*!%19 reserved */
+	0,			/*!%20 reserved */
+	0,			/*!%21 reserved */
+	0,			/*!%22 reserved */
+	0,			/*!%23 EXTI line[9:5] interrupts */
+	0,			/*!%24 TIM1 break and TIM15 global interrupt */
+	0,			/*!%25 TIM1 update and TIM16 global interrupt */
+	0,			/*!%26 TIM1 trigger and commutation and TIM17 global interrupt */
+	0,			/*!%27 TIM1 capture compare interrupt */
+	0,			/*!%28 TIM2 global interrupt */
+	0,			/*!%29 TIM3 global interrupt */
+	0,			/*!%30 TIM4 global interrupt */
+	0,			/*!%31 I2C1 event interrupt */
+	0,			/*!%32 I2C1 error interrupt */
+	0,			/*!%33 I2C2 event interrupt */
+	0,			/*!%34 I2C2 error interrupt */
+	0,			/*!%35 SPI1 global interrupt */
+	0,			/*!%36 SPI2 global interrupt */
+	usart1_isr,			/*!%37 USART1 global interrupt */
+	0,			/*!%38 USART2 global interrupt */
+	0,			/*!%39 USART3 global interrupt */
+	0,			/*!%40 EXTI line[15:10] interrupts */
+	0,			/*!%41 RTC alarm through EXTI line interrupt */
+	0,			/*!%42 HDMI-CEC interrupt */
+	0,			/*!%43 reserved */
+	0,			/*!%44 reserved */
+	0,			/*!%45 reserved */
+	0,			/*!%46 reserved */
+	0,			/*!%47 reserved */
+	0,			/*!%48 reserved */
+	0,			/*!%49 reserved */
+	0,			/*!%50 reserved */
+	0,			/*!%51 reserved */
+	0,			/*!%52 reserved */
+	0,			/*!%53 reserved */
+	0,			/*!%54 TIM6 and DAC underrun interrupt */
+	0			/*!%55 TIM7 interrupt */
 };
+
