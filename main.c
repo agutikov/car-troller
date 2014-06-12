@@ -561,6 +561,86 @@ void reostat_print (void)
 	printstr("\n");
 }
 
+void buzzer_init (void)
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOE, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(GPIOE, &GPIO_InitStructure);
+
+	TIM2->PSC = (SystemCoreClock / 44000) - 1;
+	TIM2->ARR = 44000/440;
+
+	NVIC_EnableIRQ(TIM2_IRQn);
+
+	TIM2->CR1 |= TIM_CR1_CEN;
+
+	printstr("Buzzer\n");
+}
+void buzzer_set_freq (uint16_t f)
+{
+	TIM2->ARR = 44000/f;
+}
+void buzzer_enable ()
+{
+	TIM2->DIER |= TIM_DIER_UIE;
+}
+void buzzer_disable ()
+{
+	TIM2->DIER &= ~TIM_DIER_UIE;
+}
+
+int buzzer_state = 0;
+void buzzer_tick ()
+{
+	GPIO_WriteBit(GPIOE, GPIO_Pin_0, buzzer_state);
+
+	buzzer_state = !buzzer_state;
+}
+
+void beep (uint16_t f, uint16_t time)
+{
+	if (f) {
+		TIM2->ARR = 44000/f;
+		TIM2->DIER |= TIM_DIER_UIE;
+	}
+	wait(time*4);
+	if (f) {
+		TIM2->DIER &= ~TIM_DIER_UIE;
+	}
+}
+
+typedef struct note {
+	uint16_t freq;
+	uint16_t dur;
+} note_t;
+void buzzer_play (note_t* notes, uint32_t length, uint32_t speed) {
+	TIM2->DIER |= TIM_DIER_UIE;
+	for (int i = 0; i < length; i++) {
+		if (notes->freq) {
+			TIM2->ARR = 44000/notes[i].freq;
+			wait(notes[i].dur*speed);
+		} else {
+			TIM2->DIER &= ~TIM_DIER_UIE;
+			wait(notes[i].dur*speed);
+			TIM2->DIER |= TIM_DIER_UIE;
+		}
+		printnum(i, 0);
+		printstr("\n");
+	}
+	TIM2->DIER &= ~TIM_DIER_UIE;
+}
+
+void timer2_isr (void)
+{
+	TIM2->SR &= ~TIM_SR_UIF;
+	buzzer_tick();
+}
+
 int argc = 0;
 char* argv[32] = {0};
 
@@ -586,6 +666,40 @@ void split_args (char* cmd, uint32_t cmd_length)
 		}
 	}
 }
+
+
+note_t star_wars[] = {
+	{440, 500}, {440, 500}, {440, 500}, {349, 350}, {523, 150},
+	{440, 500}, {349, 350}, {523, 150}, {440, 1000},
+	{659, 500}, {659, 500}, {659, 500}, {698, 350}, {523, 150},
+	{415, 500}, {349, 350}, {523, 150}, {440, 1000},
+	{880, 500}, {440, 350}, {440, 150}, {880, 500}, {830, 250}, {784, 250},
+	{740, 125}, {698, 125}, {740, 250},
+
+	{0, 250},
+
+	{455, 250}, {622, 500}, {587, 250}, {554, 250},
+	{523, 125}, {466, 125}, {523, 250},
+
+	{0, 250},
+
+	{349, 125}, {415, 500}, {349, 375}, {440, 125},
+	{523, 500}, {440, 375}, {523, 125}, {659, 1000},
+	{880, 500}, {440, 350}, {440, 150}, {880, 500}, {830, 250}, {784, 250},
+	{740, 125}, {698, 125}, {740, 250},
+
+	{0, 250},
+
+	{455, 250}, {622, 500}, {587, 250}, {554, 250},
+	{523, 125}, {466, 125}, {523, 250},
+
+	{0, 250},
+
+	{349, 250}, {415, 500}, {349, 375}, {523, 125},
+	{440, 500}, {349, 375}, {261, 125}, {440, 1000},
+
+	{0, 100},
+};
 
 const char* help = "help, h, ? - print this message\n";
 
@@ -665,6 +779,23 @@ int cmd_exec (int argc, char* argv[], usart_t* term)
 	if (!strcmp(argv[0], "error")) {
 		return -100500;
 	}
+	if (!strcmp(argv[0], "buzzer")) {
+		buzzer_set_freq(500);
+		buzzer_enable();
+		wait(1000);
+		buzzer_set_freq(1000);
+		wait(1000);
+		buzzer_set_freq(300);
+		wait(1000);
+		buzzer_disable();
+
+		return 0;
+	}
+	if (!strcmp(argv[0], "starwars")) {
+		buzzer_play(star_wars, sizeof(star_wars)/sizeof(star_wars[0]), 10);
+
+		return 0;
+	}
 
 	return 1;
 }
@@ -703,6 +834,7 @@ void main( void )
 
 	term_putstr(usart_1, "\n\n>>>>>>>> Egor Volvo Car-Troller <<<<<<<<<<\n");
 
+	buzzer_init();
 	rti_init();
 	reostat_adc_init();
 

@@ -74,6 +74,7 @@ caddr_t _sbrk_r (int incr)
 extern void usart1_tx_dma_isr(void);
 extern void usart1_isr (void);
 
+extern void timer2_isr (void);
 extern void timer3_isr (void);
 
 /*
@@ -206,7 +207,7 @@ isr_t __isr_vector[] =
 	0,			/*!%25 TIM1 update and TIM16 global interrupt */
 	0,			/*!%26 TIM1 trigger and commutation and TIM17 global interrupt */
 	0,			/*!%27 TIM1 capture compare interrupt */
-	0,			/*!%28 TIM2 global interrupt */
+	timer2_isr,			/*!%28 TIM2 global interrupt */
 	timer3_isr,			/*!%29 TIM3 global interrupt */
 	0,			/*!%30 TIM4 global interrupt */
 	0,			/*!%31 I2C1 event interrupt */
