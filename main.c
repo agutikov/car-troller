@@ -1,13 +1,19 @@
 
 /*
 
+	pl2303 usart:
 	A9 - usart1 tx
 	A10 - usart1 rx
 
+	E0 - buzzer
 
+	C6, C7, D13, D6 - LEDs
 
+	E2, E3, E4, E5 - keys
 
+	C0, C1 - reostat
 
+	C8 - screen control
 
 
 
