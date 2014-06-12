@@ -189,7 +189,7 @@ isr_t __isr_vector[] =
 	0,			/*!%8 EXTI line2 interrupt */
 	0,			/*!%9 EXTI line3 interrupt */
 	0,			/*!%10 EXTI line4 interrupt */
-	usart1_tx_dma_isr,			/*!%11 DMA1 channel 1 global interrupt */
+	0,			/*!%11 DMA1 channel 1 global interrupt */
 	0,			/*!%12 DMA1 channel 2 global interrupt */
 	0,			/*!%13 DMA1 channel 3 global interrupt */
 	0,			/*!%14 DMA1 channel 4 global interrupt */

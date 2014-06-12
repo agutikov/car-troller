@@ -5,16 +5,15 @@
 	A9 - usart1 tx
 	A10 - usart1 rx
 
-	E0 - buzzer pwm TIM2
+	E0 - buzzer - no avaliable TIM pwm, software pwm by TIM2 irq
 
 	C6, C7, D13, D6 - LEDs GPIO
 
 	E2, E3, E4, E5 - keys GPIO EXTI
 
-	C0, C1 - reostat ADC channel 0,1
+	C0, C1 - reostat, ADC channel 10,11
 
 	C8 - rti screen control GPIO + TIM3 used
-
 
 
  */
@@ -257,10 +256,6 @@ void usart1_isr (void)
 {
 	usart_isr(&usart_devices[0]);
 }
-void usart1_tx_dma_isr(void)
-{
-	usart_handle_tx_dma_irq(&usart_devices[0]);
-}
 
 #define LED_NUMBER  4
 
@@ -430,6 +425,8 @@ void rti_tick (void)
 	}
 }
 
+
+
 void timer3_isr (void)
 {
 	TIM3->SR &= ~TIM_SR_UIF;
@@ -454,9 +451,14 @@ void reostat_adc_init (void)
 {
 	GPIO_InitTypeDef GPIO_InitStructure;
 
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1 | GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
 	GPIO_Init(GPIOC, &GPIO_InitStructure);
+	// power for light sensor
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+	GPIO_WriteBit(GPIOC, GPIO_Pin_0, 1);
 
 	RCC_ADCCLKConfig(RCC_PCLK2_Div8);
 	/* Enable ADC1 clock so that we can talk to it */
@@ -513,15 +515,49 @@ uint16_t reostat_get_value (uint8_t channel)
 	return value;
 }
 
+int sample_counter = 0;
+uint16_t sensor_sample[100] = {0};
+
+void light_sensor_sample_fill (void)
+{
+	for (int j = 0; j < 10; j++)
+		for (int i = 0; i < sizeof(sensor_sample)/sizeof(sensor_sample[0]); i++) {
+			sensor_sample[i] = reostat_get_value(10);
+		}
+}
+
+void light_sensor_tick (int print)
+{
+	sensor_sample[sample_counter] = reostat_get_value(10);
+	sample_counter++;
+	if (sample_counter == sizeof(sensor_sample)/sizeof(sensor_sample[0])) {
+		sample_counter = 0;
+	}
+
+	if (print) {
+		uint32_t avg = 0;
+		for (int i = 0; i < sizeof(sensor_sample)/sizeof(sensor_sample[0]); i++) {
+			avg += sensor_sample[i];
+		}
+		avg /= sizeof(sensor_sample)/sizeof(sensor_sample[0]);
+
+		printstr("sensor value = ");
+		printnum(avg, 0);
+		printstr("\n");
+	}
+}
+
 void reostat_print (void)
 {
 	//TODO: where to find mapping ADC channels onto GPIO ?
 	uint16_t adc0 = reostat_get_value(10);
-	uint16_t adc1 = reostat_get_value(11);
 	printstr("\nADC 0: ");
 	printnum(adc0, 0);
-	printstr("\nADC 1: ");
-	printnum(adc1, 0);
+
+//	uint16_t adc1 = reostat_get_value(11);
+//	printstr("\nADC 1: ");
+//	printnum(adc1, 0);
+
 	printstr("\n");
 }
 
@@ -616,7 +652,16 @@ int cmd_exec (int argc, char* argv[], usart_t* term)
 			return 0;
 		}
 	}
-
+	if (!strcmp(argv[0], "light")) {
+		light_sensor_sample_fill();
+		int counter = strtol(argv[1], 0, 0);
+		int period = strtol(argv[2], 0, 0);
+		while (counter--) {
+			light_sensor_tick(1);
+			wait(period);
+		}
+		return 0;
+	}
 	if (!strcmp(argv[0], "error")) {
 		return -100500;
 	}
@@ -628,9 +673,8 @@ char cmd_buffer[USART_BUFF_SIZE];
 
 /*
  * TODO:
- * - reostat adc
- * - buttons
  * - buzzer pwm
+ * - buttons
  * - rtc
  * - system timer - for custom timers with callbacks and counters
  * - configuration for GPIO, NVIC, DMA - in one block, not in each driver
@@ -697,7 +741,7 @@ void main( void )
 			if (cmd_buffer[0] != LF) {
 
 				split_args(cmd_buffer, recv);
-#if 1
+#if 0
 				for (int i = 0; i < argc; i++) {
 					term_putstr(usart_1, argv[i]);
 					term_putstr(usart_1, "\n");
