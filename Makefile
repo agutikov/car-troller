@@ -20,7 +20,7 @@ CFLAGS+= -Wall
 CFLAGS+= -DSTM32F10X_HD
 
 
-SPL_LIB_PATH=../../spl/STM32F10x_StdPeriph_Lib_V3.5.0
+SPL_LIB_PATH=../spl/STM32F10x_StdPeriph_Lib_V3.5.0
 
 SPL_SYSTEM_DIR=$(SPL_LIB_PATH)/Libraries/CMSIS/CM3/DeviceSupport/ST/STM32F10x
 SPL_CORE_DIR=$(SPL_LIB_PATH)/Libraries/CMSIS/CM3/CoreSupport
