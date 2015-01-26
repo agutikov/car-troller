@@ -206,7 +206,9 @@ $(ALL_S_OBJS): %.o: %.s
 
 .PHONY: clean
 clean:
-	rm -rf *.o *.elf *.bin *.lst *.map *.hex
+	rm -rvf *.o *.elf *.bin *.lst *.map *.hex
+	find -name "*.o" -exec rm -v {} \;
+#	rm -rf $(CUBE_DIR)
 
 
 .PHONY: get_cube
@@ -219,8 +221,8 @@ $(CUBE_ZIP_FILENAME):
 	wget $(CUBE_URL)
 
 
-.PHONY: download_docs
-download_docs: $(DOCS)
+.PHONY: get_docs
+get_docs: $(DOCS)
 
 Documentation/$(DATASHEET_FILENAME): Documentation
 	wget -v $(DATASHEET_URL) -O $@
