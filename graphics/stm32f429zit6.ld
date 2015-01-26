@@ -58,7 +58,6 @@ SECTIONS
 		*(.bss)
 		*(.bss*)
 		*(COMMON)
-		. = _bss + _bss_size;
 		. = ALIGN(4);
 		_ebss = .;
 	} > SRAM
@@ -67,7 +66,7 @@ SECTIONS
 	{
 		. = ALIGN(4);
 		_heap = .;
-		. = . + _heap_size;
+		. = . + LENGTH(SDRAM);
 		. = ALIGN(4);
 		_eheap = .;
 	} > SDRAM
@@ -76,7 +75,7 @@ SECTIONS
 	{
 		. = ALIGN(4);
 		_stack = .;
-		. = . + SIZEOF(CCM);
+		. = . + LENGTH(CCM);
 		. = ALIGN(4);
 		_estack = .;
 	} > CCM

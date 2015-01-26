@@ -9,3 +9,21 @@ STM32F429ZIT6
 
 http://www.st.com/web/en/catalog/mmc/FM141/SC1169/SS1577/LN1806
 
+
+BUILD, FLASH and DEBUG
+----------------------
+
+```bash
+
+# download stm32cube
+make get_cube
+
+# compile
+make all
+
+# flash
+make flash
+
+# for debug - check Makefile last section "Flash and Debug"
+
+```
