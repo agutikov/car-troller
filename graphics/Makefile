@@ -80,6 +80,7 @@ CFLAGS+= -I$(COMPONENTS_DIR)/ili9341/
 CFLAGS+= -I$(COMPONENTS_DIR)/stmpe811/
 CFLAGS+= -I$(COMPONENTS_DIR)/l3gd20/
 
+# take stm32f4xx_hal_conf.h from here
 CFLAGS+= -I$(TEMPLATE_APP_DIR)/Inc
 
 ### LINKAGE
