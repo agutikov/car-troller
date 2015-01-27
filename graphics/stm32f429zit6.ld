@@ -1,5 +1,5 @@
 
-ENTRY(reset_isr)
+ENTRY(Reset_Handler)
 
 MEMORY
 {
@@ -42,6 +42,7 @@ SECTIONS
 	{
 		. = ALIGN(4);
 		_data = .;
+		_sdata = .;
 		*(.data)
 		*(.data*)
 		. = ALIGN(4);
@@ -49,12 +50,14 @@ SECTIONS
 	} > SRAM
 
 	_data_at_flash = ADDR(.text) + SIZEOF(.text);
+	_sidata = ADDR(.text) + SIZEOF(.text);
 	_edata_at_flash = _data_at_flash + SIZEOF(.data);
 
 	.bss :
 	{
 		. = ALIGN(4);
 		_bss = .;
+		_sbss = .;
 		*(.bss)
 		*(.bss*)
 		*(COMMON)
