@@ -33,3 +33,21 @@ make get_docs
 make clean
 
 ```
+
+Used examples
+-------------
+
+./STM32Cube_FW_F4_V1.4.0/Projects/STM32F429I-Discovery/Examples/BSP
+./STM32Cube_FW_F4_V1.4.0/Projects/STM32F429I-Discovery/Examples/LTDC/LTDC_Display_2Layers
+./STM32Cube_FW_F4_V1.4.0/Projects/STM32F429I-Discovery/Applications/Display/LTDC_Paint
+
+
+
+
+
+
+
+
+
+
+

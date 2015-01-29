@@ -39,7 +39,8 @@ REFERENCE_MANUAL_FILENAME=reference_manual.pdf
 PROGRAMMING_MANUAL_URL=http://www.st.com/st-web-ui/static/active/en/resource/technical/document/programming_manual/DM00046982.pdf
 PROGRAMMING_MANUAL_FILENAME=programming_manual.pdf
 
-DOCS_FILENAMES=$(DATASHEET_FILENAME) $(USER_MANUAL_FILENAME) $(REFERENCE_MANUAL_FILENAME) $(PROGRAMMING_MANUAL_FILENAME)
+DOCS_FILENAMES=$(DATASHEET_FILENAME) $(USER_MANUAL_FILENAME) \
+$(REFERENCE_MANUAL_FILENAME) $(PROGRAMMING_MANUAL_FILENAME)
 DOCS=$(DOCS_FILENAMES:%=Documentation/%)
 
 
@@ -53,8 +54,6 @@ CUBE_DIR=./$(CUBE_DIR_NAME)_V$(CUBE_VERSION)
 
 CMSIS_INC_DIR=$(CUBE_DIR)/Drivers/CMSIS/Include
 CMSIS_F4XX_INC_DIR=$(CUBE_DIR)/Drivers/CMSIS/Device/ST/STM32F4xx/Include
-CMSIS_F4XX_SYSTEM_DIR=$(CUBE_DIR)/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates
-CMSIS_F4XX_STARTUP_DIR=$(CUBE_DIR)/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/gcc
 
 HAL_INC_DIR=$(CUBE_DIR)/Drivers/STM32F4xx_HAL_Driver/Inc
 HAL_SRC_DIR=$(CUBE_DIR)/Drivers/STM32F4xx_HAL_Driver/Src
@@ -62,10 +61,6 @@ HAL_SRC_DIR=$(CUBE_DIR)/Drivers/STM32F4xx_HAL_Driver/Src
 DISCO_BSP_DIR=$(CUBE_DIR)/Drivers/BSP/STM32F429I-Discovery
 
 COMPONENTS_DIR=$(CUBE_DIR)/Drivers/BSP/Components
-COMPONENTS_COMMON_INC_DIR=$(CUBE_DIR)/Drivers/BSP/Components/Common
-
-TEMPLATE_APP_DIR=$(CUBE_DIR)/Projects/STM32F429I-Discovery/Templates
-
 
 ### INCLUDES
 
@@ -74,32 +69,21 @@ CFLAGS+= -I$(CMSIS_INC_DIR)
 CFLAGS+= -I$(CMSIS_F4XX_INC_DIR)
 CFLAGS+= -I$(HAL_INC_DIR)
 CFLAGS+= -I$(DISCO_BSP_DIR)
-CFLAGS+= -I$(COMPONENTS_COMMON_INC_DIR)
-
+CFLAGS+= -I$(COMPONENTS_DIR)/Common/
 CFLAGS+= -I$(COMPONENTS_DIR)/ili9341/
 CFLAGS+= -I$(COMPONENTS_DIR)/stmpe811/
 CFLAGS+= -I$(COMPONENTS_DIR)/l3gd20/
 
-# take stm32f4xx_hal_conf.h from here
-CFLAGS+= -I$(TEMPLATE_APP_DIR)/Inc
-
 ### LINKAGE
 
-LDSCRIPT=stm32f429zit6.ld
+LDSCRIPT=stm32f429i-discovery.ld
 
 GCCLDFLAGS= $(ARCH_FLAGS) -nostartfiles -Wl,-M -Wl,-Map,firmware.map
 
-
 ### SOURCES
 
-SRCS=main.c
+SRCS=main.c system_stm32f4xx.c ts_calibration.c stm32f4xx_it.c
 LOCAL_OBJS=$(SRCS:.c=.o)
-
-CMSIS_STARTUP_SRCS=$(CMSIS_F4XX_STARTUP_DIR)/startup_stm32f429xx.s
-CMSIS_STARTUP_OBJS=$(CMSIS_STARTUP_SRCS:.s=.o)
-
-CMSIS_SYSTEM_SRCS=$(CMSIS_F4XX_SYSTEM_DIR)/system_stm32f4xx.c
-CMSIS_SYSTEM_OBJS=$(CMSIS_SYSTEM_SRCS:.c=.o)
 
 HAL_SRC= stm32f4xx_hal.c \
 	stm32f4xx_hal_adc.c \
@@ -130,7 +114,6 @@ HAL_SRC= stm32f4xx_hal.c \
 	stm32f4xx_hal_irda.c  \
 	stm32f4xx_hal_iwdg.c  \
 	stm32f4xx_hal_ltdc.c  \
-	stm32f4xx_hal_msp_template.c  \
 	stm32f4xx_hal_nand.c  \
 	stm32f4xx_hal_nor.c  \
 	stm32f4xx_hal_pccard.c  \
@@ -176,8 +159,9 @@ COMPONENTS_SRCS=$(COMPONENTS_DIR)/ili9341/ili9341.c \
 COMPONENTS_OBJS=$(COMPONENTS_SRCS:.c=.o)
 
 
-ALL_C_OBJS=$(LOCAL_OBJS) $(CMSIS_SYSTEM_OBJS) $(HAL_OBJS) $(DISCO_BSP_OBJS) $(COMPONENTS_OBJS)
-ALL_S_OBJS=$(CMSIS_STARTUP_OBJS)
+ALL_C_OBJS=$(LOCAL_OBJS) $(CMSIS_SYSTEM_OBJS) $(HAL_OBJS) \
+$(DISCO_BSP_OBJS) $(COMPONENTS_OBJS)
+ALL_S_OBJS=startup_stm32f429xx.o
 
 
 ### TARGETS

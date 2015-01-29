@@ -16,17 +16,28 @@ SDRAM connected to FMC Bank 6 (SDRAM Bank 2)
     SDRAM (rxw)   : ORIGIN = 0xD0000000, LENGTH = 8M
 }
 
-/*
-TODO: stack > CCM, data + bss > SRAM, heap > SDRAM
-*/
 
 SECTIONS
 {
+    .isr_vector :
+    {
+	. = ALIGN(4);
+        KEEP(*(.isr_vector))
+	. = ALIGN(4);
+    } >FLASH
+
+    /* for some STRx devices, the beginning of the startup code is stored in the .flashtext section, which goes to FLASH */
+    .flashtext :
+    {
+	. = ALIGN(4);
+        *(.flashtext)            /* Startup code */
+	. = ALIGN(4);
+    } > FLASH
+
 	.text :
 	{
 		. = ALIGN(4);
 		_text = .;
-		KEEP(*(.isr_vector))
 		*(.text)
 		*(.text*)
 		. = ALIGN(4);
@@ -36,15 +47,27 @@ SECTIONS
 		*(.rodata*)
 		. = ALIGN(4);
 		_erodata = .;
+		*(.glue_7)
+        *(.glue_7t)
+        *(.vfp11_veneer)
+        *(.v4_bx)
+        *(.ARM.extab* .gnu.linkonce.armextab.*)
 	} > FLASH
 
-	.data : AT (ADDR(.text) + SIZEOF(.text))
+	.ARM.exidx : {
+		__exidx_start = .;
+		*(.ARM.exidx* .gnu.linkonce.armexidx.*)
+		__exidx_end = .;
+	} > FLASH
+
+	.data : AT (ADDR(.ARM.exidx) + SIZEOF(.ARM.exidx))
 	{
 		. = ALIGN(4);
 		_data = .;
 		_sdata = .;
 		*(.data)
 		*(.data*)
+		*(.gnu.linkonce.d.*)
 		. = ALIGN(4);
 		_edata = .;
 	} > SRAM
@@ -65,11 +88,20 @@ SECTIONS
 		_ebss = .;
 	} > SRAM
 
+/*
+		4 framebuffers 320x240 ARGB32
+*/
+FRAMEBUFFERS_SIZE = 320*240*4*4;
+
 	.heap :
-	{
+	{		
 		. = ALIGN(4);
+		__framebuffers = .;
+		. = . + FRAMEBUFFERS_SIZE;
+		. = ALIGN(4);
+		__eframebuffers = .;
 		_heap = .;
-		. = . + LENGTH(SDRAM);
+		. = . + LENGTH(SDRAM) - FRAMEBUFFERS_SIZE;
 		. = ALIGN(4);
 		_eheap = .;
 	} > SDRAM

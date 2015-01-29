@@ -1,6 +1,5 @@
 target remote localhost:3333
 symbol-file firmware.elf
-break reset_isr
-break hard_fault_isr
+break main
 monitor reset halt
 continue
