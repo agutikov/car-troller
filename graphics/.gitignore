@@ -31,3 +31,9 @@
 
 STM32Cube*
 *.zip
+*.jpg
+*.bmp
+*.bmp.c
+
+images.c
+

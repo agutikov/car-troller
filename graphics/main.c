@@ -9,6 +9,12 @@
 #include "stm32f429i_discovery_io.h"
 #include "stm32f429i_discovery_lcd.h"
 
+#include "stm32f4xx_hal_gpio.h"
+#include "stm32f4xx_hal_dma2d.h"
+
+#include "images.c"
+
+
 extern void Touchscreen_Calibration(void);
 extern uint16_t Calibration_GetX(uint16_t x);
 
@@ -293,11 +299,109 @@ static void SystemClock_Config(void)
   HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5);
 }
 
+typedef struct argb32 {
+	uint8_t a;
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+} argb32_t;
+
+void BSP_LCD_DrawBitmap_Ex(uint32_t X, uint32_t Y, uint8_t *pBmp)
+{
+  uint32_t index = 0, width = 0, height = 0, bitpixel = 0;
+  uint32_t address;
+
+  /* Get bitmap data address offset */
+  index = *(__IO uint16_t *) (pBmp + 10);
+  index |= (*(__IO uint16_t *) (pBmp + 12)) << 16;
+
+  /* Read bitmap width */
+  width = *(uint16_t *) (pBmp + 18);
+  width |= (*(uint16_t *) (pBmp + 20)) << 16;
+
+  /* Read bitmap height */
+  height = *(uint16_t *) (pBmp + 22);
+  height |= (*(uint16_t *) (pBmp + 24)) << 16;
+
+  /* Read bit/pixel */
+  bitpixel = *(uint16_t *) (pBmp + 28);
+
+  /* Set Address */
+  address = framebuffer_front_0 + (((BSP_LCD_GetXSize()*Y) + X)*(4));
+
+  /* bypass the bitmap header */
+  pBmp += (index + (width * (height - 1) * (bitpixel/8)));
+
+  /* Convert picture to ARGB8888 pixel format */
+  for(index=0; index < height; index++)
+  {
 
 
+	/* Pixel format conversion */
+	for (int pixel = 0; pixel < width; pixel++) {
+
+		argb32_t back = ((argb32_t*)address)[pixel];
+		argb32_t front = ((argb32_t*)pBmp)[pixel];
+
+		back.a = 255;
+
+		uint32_t tmp;
+
+		tmp = back.r*(256 - front.r)*(256 - front.a)/32/128;
+		if (tmp > 255) tmp = 255;
+		back.r = tmp;
+
+		tmp = back.g*(256 - front.g)*(256 - front.a)/32/128;
+		if (tmp > 255) tmp = 255;
+		back.g = tmp;
+
+		tmp = back.b*(256 - front.b)*(256 - front.a)/32/128;
+		if (tmp > 255) tmp = 255;
+		back.b = tmp;
+
+		((argb32_t*)address)[pixel] = back;
+	}
 
 
+	  /* Increment the source and destination buffers */
+	  address+=  ((BSP_LCD_GetXSize() - width + width)*4);
+	  pBmp -= width*(bitpixel/8);
+  }
+}
 
+#define RELAY_PORT 	GPIOG
+
+#define RELAY_0_PIN		GPIO_PIN_11
+#define RELAY_1_PIN		GPIO_PIN_12
+#define RELAY_2_PIN		GPIO_PIN_13
+#define RELAY_3_PIN		GPIO_PIN_14
+
+#define RELAY_PORT_CLK_ENABLE 	__GPIOG_CLK_ENABLE
+
+void PushButton_Action(int button_id)
+{
+	switch (button_id) {
+	case 0:
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_1_PIN | RELAY_2_PIN | RELAY_3_PIN, 0);
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_0_PIN, 1);
+		break;
+	case 1:
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_0_PIN | RELAY_2_PIN | RELAY_3_PIN, 0);
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_1_PIN, 1);
+		break;
+	case 2:
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_0_PIN | RELAY_1_PIN | RELAY_3_PIN, 0);
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_2_PIN, 1);
+		break;
+	case 3:
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_0_PIN | RELAY_1_PIN | RELAY_2_PIN, 0);
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_3_PIN, 1);
+		break;
+	}
+}
+
+
+#define ABS(_X_) (((_X_) > 0) ? (_X_) : -(_X_))
 
 void main( void )
 {
@@ -313,8 +417,8 @@ void main( void )
 	BSP_LED_Init(LED3);
 	BSP_LED_Init(LED4);
 
-	BSP_LED_On(LED3);
-	BSP_LED_On(LED4);
+	BSP_LED_Off(LED3);
+	BSP_LED_Off(LED4);
 
 	/* Configure the system clock to 180 MHz */
 	SystemClock_Config();
@@ -329,8 +433,6 @@ void main( void )
 	/* Enable The LCD */
 	BSP_LCD_DisplayOn();
 
-	BSP_LED_Off(LED3);
-	BSP_LED_On(LED4);
 
 
 	BSP_LCD_LayerDefaultInit(LCD_BACKGROUND_LAYER, framebuffer_back_0);
@@ -354,10 +456,23 @@ void main( void )
 	/* Touch screen initialization */
 	Touchscreen_Calibration();
 
+	/* Relay pins */
+	{
+		GPIO_InitTypeDef  GPIO_InitStruct;
 
-	BSP_LED_Off(LED3);
-	BSP_LED_Off(LED4);
+		/* Enable the GPIO_LED Clock */
+		RELAY_PORT_CLK_ENABLE();
 
+		/* Configure the GPIO_LED pin */
+		GPIO_InitStruct.Pin = RELAY_0_PIN | RELAY_1_PIN | RELAY_2_PIN | RELAY_3_PIN;
+		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+		GPIO_InitStruct.Pull = GPIO_PULLUP;
+		GPIO_InitStruct.Speed = GPIO_SPEED_FAST;
+
+		HAL_GPIO_Init(RELAY_PORT, &GPIO_InitStruct);
+
+		HAL_GPIO_WritePin(RELAY_PORT, RELAY_0_PIN | RELAY_1_PIN | RELAY_2_PIN | RELAY_3_PIN, 0);
+	}
 
 
 	int x = 0;
@@ -376,6 +491,9 @@ void main( void )
 	BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 	BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
 
+	int prev_menu_selected = -1;
+	int menu_selected = 0;
+
 	while(1) {
 
 		BSP_TS_GetState(&TS_State);
@@ -384,19 +502,58 @@ void main( void )
 		x = Calibration_GetX(TS_State.X);
 		y = Calibration_GetX(TS_State.Y);
 
-		if (prev_x != x || prev_y != y) {
+		if (ABS(prev_x - x) > 20 || ABS(prev_y - y) > 20) {
+
 			prev_x = x;
 			prev_y = y;
 
-			BSP_LCD_Clear(LCD_COLOR_BLACK);
 
-			char buffer[128] = "X: ";
-			i2str(&buffer[3], x, 0, 0);
-			BSP_LCD_DisplayStringAt(0, 60, (uint8_t*)buffer, CENTER_MODE);
+			if (x < 120) {
+				if (y < 80) {
+					menu_selected = 0;
+				} else if (y < 160) {
+					menu_selected = 2;
+				} else if (y < 240) {
 
-			memcpy(buffer, "Y: ", 4);
-			i2str(&buffer[3], y, 0, 0);
-			BSP_LCD_DisplayStringAt(0, 100, (uint8_t*)buffer, CENTER_MODE);
+				} else {
+
+				}
+			} else {
+				if (y < 80) {
+					menu_selected = 1;
+				} else if (y < 160) {
+					menu_selected = 3;
+				} else if (y < 240) {
+
+				} else {
+
+				}
+			}
+
+
+
+
+			if (prev_menu_selected != menu_selected) {
+
+				prev_menu_selected = menu_selected;
+
+//				BSP_LCD_Clear(LCD_COLOR_BLACK);
+				BSP_LCD_DrawBitmap(0, 0, menu_0_bmp);
+
+				char buffer[128] = "X: ";
+				i2str(&buffer[3], x, 0, 0);
+				BSP_LCD_DisplayStringAt(10, 280, (uint8_t*)buffer, LEFT_MODE);
+
+				memcpy(buffer, "Y: ", 4);
+				i2str(&buffer[3], y, 0, 0);
+				BSP_LCD_DisplayStringAt(10, 300, (uint8_t*)buffer, LEFT_MODE);
+
+
+				PushButton_Action(menu_selected);
+
+
+				BSP_LCD_DrawBitmap_Ex((menu_selected % 2) * 120, (menu_selected / 2) * 80, selected_120x80_bmp);
+			}
 
 		}
 

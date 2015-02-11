@@ -10,6 +10,16 @@ with STM32F429ZIT6 mcu:
 http://www.st.com/web/en/catalog/mmc/FM141/SC1169/SS1577/LN1806
 
 
+TODO
+----
+
+1. Store calibration, call calibration from menu
+
+2. alfa blending
+
+3. time, rtc?, timer delay
+
+
 BUILD, FLASH and DEBUG
 ----------------------
 
@@ -31,6 +41,9 @@ make get_docs
 
 # clean revious build
 make clean
+
+# download and convert images
+make get_data
 
 ```
 

@@ -62,6 +62,14 @@ DISCO_BSP_DIR=$(CUBE_DIR)/Drivers/BSP/STM32F429I-Discovery
 
 COMPONENTS_DIR=$(CUBE_DIR)/Drivers/BSP/Components
 
+### DATA FILES
+
+BMPS=menu_0.bmp selected_120x80.bmp
+IMAGES=$(BMPS:%=%.c)
+
+MENU_O_BMP_FILEID=0B4GiJQNyi2tUOXZpcXJfUU9JdW8
+SELECTED_120x80_BMP_FILEID=0B4GiJQNyi2tUOTZhc2hjM3BhSmM
+
 ### INCLUDES
 
 CFLAGS+= -I.
@@ -188,10 +196,12 @@ $(ALL_S_OBJS): %.o: %.s
 %.lst:	%.elf
 	$(OBJDUMP) -htS $< > $@
 
+main.c: images.c
+
 
 .PHONY: clean
 clean:
-	rm -rvf *.o *.elf *.bin *.lst *.map *.hex
+	rm -rvf *.o *.elf *.bin *.lst *.map *.hex images.c *.bmp *.bmp.c
 	find -name "*.o" -exec rm -v {} \;
 #	rm -rf $(CUBE_DIR)
 
@@ -223,6 +233,23 @@ Documentation/$(PROGRAMMING_MANUAL_FILENAME): Documentation
 
 Documentation:
 	mkdir Documentation
+
+
+.PHONY: get_data
+get_data:  images.c
+
+images.c: $(IMAGES)
+
+$(IMAGES): %.bmp.c : %.bmp
+	echo "const" > $@
+	xxd -i $< >> $@
+	echo "#include \"$@\";" >> images.c
+
+menu_0.bmp:
+	wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=$(MENU_O_BMP_FILEID)' -O $@
+
+selected_120x80.bmp:
+	wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=$(SELECTED_120x80_BMP_FILEID)' -O $@
 
 
 ######### Flash and Debug
